@@ -1,11 +1,15 @@
 # answer_engine.py
 import json
 import tiktoken
+from rapidfuzz import fuzz
 from preprocess_pipeline import clean_text
+from utils import normalise_input, expand_phrases
 
-# Load chunks
 with open("data/chunks.json", "r", encoding="utf-8") as f:
     chunks_data = json.load(f)
+
+with open("data/phrase_map.json", "r", encoding="utf-8") as f:
+    phrase_map = json.load(f)
 
 encoding = tiktoken.encoding_for_model("gpt-3.5-turbo")
 
@@ -16,12 +20,15 @@ def get_answer(question, chunks_subset):
     if not question:
         return []
 
-    question = question.strip().lower()
-    results = []
+    normalised = normalise_input(question)
+    expanded_phrases = expand_phrases(normalised, phrase_map)
 
+    results = []
     for chunk in chunks_subset:
         chunk_text = clean_text(chunk["content"])
-        if question in chunk_text.lower():
-            results.append(chunk)
+        for phrase in expanded_phrases:
+            if fuzz.partial_ratio(phrase, chunk_text.lower()) >= 85:
+                results.append(chunk)
+                break
 
     return results
