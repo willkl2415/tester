@@ -1,23 +1,25 @@
-import openai
+# rewrite_query.py
+import json
 import os
+from rapidfuzz import fuzz
 
-openai.api_key = os.getenv("OPENAI_API_KEY")
+# Load phrase mapping
+PHRASE_MAP_PATH = os.path.join("data", "phrase_map.json")
 
-def rewrite_query(user_query):
-    prompt = f"""You are a Defence Training Assistant.
-Rewrite the following into a clear, grammatically correct DSAT-related question:
+if os.path.exists(PHRASE_MAP_PATH):
+    with open(PHRASE_MAP_PATH, "r", encoding="utf-8") as f:
+        phrase_map = json.load(f)
+else:
+    phrase_map = {}
 
-Input: "{user_query}"
+def rewrite_with_phrase_map(query):
+    threshold = 80  # minimum similarity %
+    rewritten_query = query
 
-Output:"""
+    for key in phrase_map:
+        score = fuzz.partial_ratio(query.lower(), key.lower())
+        if score >= threshold:
+            rewritten_query = phrase_map[key]
+            break
 
-    response = openai.ChatCompletion.create(
-        model="gpt-4",
-        messages=[
-            {"role": "user", "content": prompt}
-        ],
-        max_tokens=50,
-        temperature=0.2
-    )
-    return response.choices[0].message['content'].strip()
-
+    return rewritten_query.lower()
