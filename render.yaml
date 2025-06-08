@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: checkmate3
+    runtime: python
+    buildCommand: |
+      pip install -r requirements.txt
+      python preprocess_pipeline.py
+    startCommand: gunicorn app:app
+    envVars:
+      - key: PYTHONUNBUFFERED
+        value: "true"
+    plan: free
