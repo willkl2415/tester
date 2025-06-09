@@ -46,10 +46,15 @@
             </select>
             <input type="text" name="refine_query" placeholder="Refine your search..." value="{{ refine_query }}" />
 
-            <!-- ✅ Enhanced Match Engine Checkbox -->
+            <!-- ✅ Toggles -->
             <label style="display: block; margin-top: 8px;">
                 <input type="checkbox" name="use_semantic" {% if use_semantic %}checked{% endif %}>
                 Enhanced Match Engine
+            </label>
+
+            <label style="display: block; margin-top: 4px;">
+                <input type="checkbox" name="show_score" {% if show_score %}checked{% endif %}>
+                Show Relevance Score
             </label>
 
             <button type="submit" class="green-button"><strong>Ask Check-Mate</strong></button>
@@ -62,6 +67,7 @@
             {% for chunk in answer %}
             <li>
                 <strong>{{ chunk.document }}</strong> — {{ chunk.section }}<br/>
+                {% if show_score %}<em>Score: {{ chunk.score }}</em><br/>{% endif %}
                 {{ chunk.content }}
             </li>
             {% endfor %}
