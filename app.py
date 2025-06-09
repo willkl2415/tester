@@ -1,7 +1,7 @@
 import os
 import json
 from flask import Flask, render_template, request, redirect, url_for
-from answer_engine import get_answer
+from answer_engine import get_answer, get_semantic_answer
 
 app = Flask(__name__)
 
@@ -15,6 +15,7 @@ def index():
     question = request.form.get("question", "")
     selected_doc = request.form.get("document", "")
     refine_query = request.form.get("refine_query", "")
+    use_semantic = request.form.get("use_semantic") == "on"
     answer = []
 
     if request.form.get("clear") == "1":
@@ -28,7 +29,10 @@ def index():
         filtered_chunks = [chunk for chunk in filtered_chunks if refine_query.lower() in chunk["content"].lower()]
 
     if question:
-        answer = get_answer(question, filtered_chunks)
+        if use_semantic:
+            answer = get_semantic_answer(question, filtered_chunks)
+        else:
+            answer = get_answer(question, filtered_chunks)
     elif refine_query:
         answer = filtered_chunks
 
@@ -38,7 +42,8 @@ def index():
         question=question,
         documents=["All Documents"] + documents,
         selected_doc=selected_doc,
-        refine_query=refine_query
+        refine_query=refine_query,
+        use_semantic=use_semantic
     )
 
 if __name__ == "__main__":
