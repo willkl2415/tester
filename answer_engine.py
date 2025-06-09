@@ -2,11 +2,15 @@
 import json
 import tiktoken
 from preprocess_pipeline import clean_text
-from rewrite_query import rewrite_query
+from rewrite_query import rewrite_with_phrase_map as rewrite_query
 
 # Load chunks
 with open("data/chunks.json", "r", encoding="utf-8") as f:
     chunks_data = json.load(f)
+
+# Load phrase map
+with open("data/phrase_map.json", "r", encoding="utf-8") as f:
+    phrase_map = json.load(f)
 
 encoding = tiktoken.encoding_for_model("gpt-3.5-turbo")
 
@@ -17,19 +21,19 @@ def get_answer(question, chunks_subset):
     if not question:
         return []
 
-    rewritten_queries = rewrite_query(question)
+    # Handle input as string only
+    if isinstance(question, list):
+        question = question[0]
+    question = question.strip()
 
-    # Ensure the rewritten_queries is a list
-    if isinstance(rewritten_queries, str):
-        rewritten_queries = [rewritten_queries]
-
+    rewritten_phrases = rewrite_query(question, phrase_map)
     results = []
-    for chunk in chunks_subset:
-        chunk_text = clean_text(chunk["content"]).lower()
 
-        for rewritten in rewritten_queries:
-            if rewritten.lower() in chunk_text:
+    for chunk in chunks_subset:
+        chunk_text = clean_text(chunk["content"])
+        for phrase in rewritten_phrases:
+            if phrase.lower() in chunk_text.lower():
                 results.append(chunk)
-                break  # Avoid duplicate entries from multiple matches
+                break
 
     return results
