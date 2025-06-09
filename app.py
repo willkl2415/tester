@@ -1,5 +1,3 @@
-# app.py
-
 import os
 import json
 from flask import Flask, render_template, request, redirect, url_for
@@ -7,7 +5,6 @@ from answer_engine import get_answer
 
 app = Flask(__name__)
 
-# Load chunks.json and prepare filter lists
 with open("data/chunks.json", "r", encoding="utf-8") as f:
     chunks_data = json.load(f)
 
@@ -27,10 +24,8 @@ def index():
     if selected_doc and selected_doc != "All Documents":
         filtered_chunks = [chunk for chunk in filtered_chunks if chunk["document"] == selected_doc]
 
-    # Normalise refine_query input for proper matching
     if refine_query:
-        refine_query = refine_query.strip().lower()
-        filtered_chunks = [chunk for chunk in filtered_chunks if refine_query in chunk["content"].lower()]
+        filtered_chunks = [chunk for chunk in filtered_chunks if refine_query.lower() in chunk["content"].lower()]
 
     if question:
         answer = get_answer(question, filtered_chunks)
