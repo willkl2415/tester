@@ -42,7 +42,7 @@ def get_doc_priority(doc_name):
     return PRIORITY_WEIGHTS["OTHER"]
 
 def embed_query(query):
-    response = openai.embeddings.create(
+    response = openai.Embedding.create(
         input=[query],
         model="text-embedding-ada-002"
     )
