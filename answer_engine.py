@@ -19,17 +19,20 @@ def get_answer(question, chunks_subset):
 
     question = question.strip().lower()
 
-    # Try to rewrite the question using the phrase map
+    # Try rewriting the question using the phrase map
     try:
         rewritten = rewrite_with_phrase_map(question)
+        print(f"Original query: {question}")
+        print(f"Rewritten query: {rewritten}")
     except Exception as e:
-        rewritten = question  # fail gracefully
+        print(f"Rewrite error: {e}")
+        rewritten = question
 
     results = []
 
     for chunk in chunks_subset:
-        chunk_text = clean_text(chunk["content"])
-        if rewritten in chunk_text.lower() or question in chunk_text.lower():
+        chunk_text = clean_text(chunk["content"]).lower()
+        if rewritten in chunk_text or question in chunk_text:
             results.append(chunk)
 
     return results
