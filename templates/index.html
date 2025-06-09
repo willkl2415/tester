@@ -10,7 +10,7 @@
             let timeout = null;
             refineInput.addEventListener("input", () => {
                 clearTimeout(timeout);
-                timeout = setTimeout(() => refineInput.form.submit(), 600);  // Delay auto-submit
+                timeout = setTimeout(() => refineInput.form.submit(), 600);
             });
 
             const docSelect = document.querySelector("select[name='document']");
@@ -34,8 +34,9 @@
 
     <div class="right-panel">
         <div class="copyright-message">
-    &copy; 2025 William Kennedy-Long. All rights reserved.
-    </div>
+            &copy; 2025 William Kennedy-Long. All rights reserved.
+        </div>
+
         <form method="post">
             <input type="text" name="question" placeholder="Type your question..." value="{{ question }}" />
             <select name="document">
@@ -44,6 +45,13 @@
                 {% endfor %}
             </select>
             <input type="text" name="refine_query" placeholder="Refine your search..." value="{{ refine_query }}" />
+
+            <!-- ✅ Enhanced Match Engine Checkbox -->
+            <label style="display: block; margin-top: 8px;">
+                <input type="checkbox" name="use_semantic" {% if use_semantic %}checked{% endif %}>
+                Enhanced Match Engine
+            </label>
+
             <button type="submit" class="green-button"><strong>Ask Check-Mate</strong></button>
             <button type="submit" name="clear" value="1" class="red-button"><strong>Clear Search</strong></button>
         </form>
