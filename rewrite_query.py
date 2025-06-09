@@ -1,7 +1,6 @@
 import json
 import os
 
-# Load phrase_map.json once when the app starts
 PHRASE_MAP_PATH = os.path.join("data", "phrase_map.json")
 if os.path.exists(PHRASE_MAP_PATH):
     with open(PHRASE_MAP_PATH, "r") as file:
@@ -11,23 +10,17 @@ else:
 
 def rewrite_with_phrase_map(user_input, phrase_map=PHRASE_MAP):
     """
-    Rewrites a user query using known typo/abbreviation/variant mappings.
-
-    Returns a list of rewritten phrases that can be used for better matching.
+    Returns a list of rewritten query variations including corrections.
     """
-    rewritten = []
+    rewritten = set()
     cleaned_input = user_input.strip().lower()
+    rewritten.add(cleaned_input)
 
-    # Always include the original query
-    rewritten.append(cleaned_input)
-
-    # Check phrase map for possible rewrites
-    for key, variants in phrase_map.items():
+    for correct_term, variants in phrase_map.items():
         for variant in variants:
-            if variant.lower() in cleaned_input and key.lower() not in cleaned_input:
-                rewritten.append(cleaned_input.replace(variant.lower(), key.lower()))
+            variant_lower = variant.lower()
+            if variant_lower in cleaned_input and correct_term.lower() not in cleaned_input:
+                updated = cleaned_input.replace(variant_lower, correct_term.lower())
+                rewritten.add(updated)
 
-    # Remove duplicates
-    rewritten = list(set(rewritten))
-
-    return rewritten
+    return list(rewritten)
