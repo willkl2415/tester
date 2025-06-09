@@ -1,4 +1,3 @@
-<!-- templates/index.html -->
 <!DOCTYPE html>
 <html>
 <head>
@@ -36,7 +35,6 @@
         <div class="copyright-message">
             &copy; 2025 William Kennedy-Long. All rights reserved.
         </div>
-
         <form method="post">
             <input type="text" name="question" placeholder="Type your question..." value="{{ question }}" />
             <select name="document">
@@ -45,18 +43,6 @@
                 {% endfor %}
             </select>
             <input type="text" name="refine_query" placeholder="Refine your search..." value="{{ refine_query }}" />
-
-            <!-- ✅ Toggles -->
-            <label style="display: block; margin-top: 8px;">
-                <input type="checkbox" name="use_semantic" {% if use_semantic %}checked{% endif %}>
-                Enhanced Match Engine
-            </label>
-
-            <label style="display: block; margin-top: 4px;">
-                <input type="checkbox" name="show_score" {% if show_score %}checked{% endif %}>
-                Show Relevance Score
-            </label>
-
             <button type="submit" class="green-button"><strong>Ask Check-Mate</strong></button>
             <button type="submit" name="clear" value="1" class="red-button"><strong>Clear Search</strong></button>
         </form>
@@ -67,8 +53,10 @@
             {% for chunk in answer %}
             <li>
                 <strong>{{ chunk.document }}</strong> — {{ chunk.section }}<br/>
-                {% if show_score %}<em>Score: {{ chunk.score }}</em><br/>{% endif %}
                 {{ chunk.content }}
+                {% if chunk.score is defined %}
+                <br/><em>Relevance Score:</em> {{ '%.2f'|format(chunk.score) }}
+                {% endif %}
             </li>
             {% endfor %}
         </ul>
