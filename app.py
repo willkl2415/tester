@@ -30,10 +30,14 @@ def index():
 
     if question:
         if use_semantic:
+            print(f"\n🧠 Using Semantic Engine for query: {question}")
             answer = get_semantic_answer(question, filtered_chunks)
         else:
+            print(f"\n🔁 Using Classic Engine for query: {question}")
             answer = get_answer(question, filtered_chunks)
+        print(f"✅ Returned {len(answer)} results\n")
     elif refine_query:
+        print(f"\n📂 Refine filter active: '{refine_query}' in {len(filtered_chunks)} chunks")
         answer = filtered_chunks
 
     return render_template(
