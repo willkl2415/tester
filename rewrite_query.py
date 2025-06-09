@@ -1,27 +1,37 @@
 import json
 import os
-from rapidfuzz import fuzz
 
 # Load phrase map
-with open("data/phrase_map.json", "r", encoding="utf-8") as f:
-    phrase_map = json.load(f)
+phrase_map_path = os.path.join("data", "phrase_map.json")
+if os.path.exists(phrase_map_path):
+    with open(phrase_map_path, "r", encoding="utf-8") as f:
+        phrase_map = json.load(f)
+else:
+    phrase_map = {}
 
-def rewrite_with_phrase_map(original_query):
+def rewrite_query(original_query):
+    """
+    Accepts a raw query string, splits it into words, and replaces
+    known phrases or typos using the phrase_map dictionary.
+    Returns a list of possible rewritten queries including the original.
+    """
     if not isinstance(original_query, str):
-        return original_query  # fallback to original if not string
+        return [original_query]
 
-    query_lower = original_query.lower()
+    words = original_query.strip().lower().split()
+    rewritten_words = []
 
-    best_match = None
-    best_score = 0
+    for word in words:
+        if word in phrase_map:
+            replacement = phrase_map[word]
+            rewritten_words.append(replacement)
+        else:
+            rewritten_words.append(word)
 
-    for alt, canonical in phrase_map.items():
-        score = fuzz.partial_ratio(query_lower, alt.lower())
-        if score > best_score:
-            best_score = score
-            best_match = canonical
+    rewritten_query = " ".join(rewritten_words)
 
-    if best_score >= 80:
-        return best_match
+    # Always include original query too
+    if rewritten_query != original_query:
+        return [rewritten_query, original_query]
     else:
-        return original_query
+        return [original_query]
