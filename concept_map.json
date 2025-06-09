@@ -1,0 +1,10 @@
+{
+  "carry out": ["conduct", "perform", "execute", "undertake"],
+  "ksas": ["knowledge skills and attitudes", "knowledge, skills and abilities"],
+  "gap analysis": ["needs analysis", "training gap identification", "performance gap analysis"],
+  "training gap": ["capability gap", "skills gap", "learning gap"],
+  "tga": ["training gap analysis", "TNA output"],
+  "conduct analysis": ["carry out analysis", "perform assessment", "complete evaluation"],
+  "training requirement": ["learning objective", "training need", "capability requirement"],
+  "evaluate": ["assess", "review", "measure", "appraise"]
+}
