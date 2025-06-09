@@ -1,8 +1,8 @@
-# app.py
 import os
 import json
 from flask import Flask, render_template, request, redirect, url_for
 from answer_engine import get_answer
+from rewrite_query import rewrite_with_phrase_map
 
 app = Flask(__name__)
 
@@ -21,6 +21,10 @@ def index():
 
     if request.form.get("clear") == "1":
         return redirect(url_for("index"))
+
+    # Apply phrasing rewrite logic safely
+    if question and isinstance(question, str):
+        question = rewrite_with_phrase_map(question)
 
     filtered_chunks = chunks_data
     if selected_doc and selected_doc != "All Documents":
