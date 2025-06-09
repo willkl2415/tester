@@ -1,126 +1,113 @@
-import os
+# answer_engine.py
+
 import json
+import os
+import re
 import numpy as np
-from rapidfuzz import fuzz
-from rewrite_query import rewrite_with_phrase_map
-from utils import classify_intent
+import tiktoken
+from sklearn.metrics.pairwise import cosine_similarity
+from openai import OpenAI
+from utils import normalise_input
 
-# Load precomputed chunks with vectors
-def load_chunks_with_vectors():
-    with open("data/chunks_with_vectors.json", "r", encoding="utf-8") as f:
-        return json.load(f)
+# Load OpenAI key
+openai = OpenAI()
 
-chunks = load_chunks_with_vectors()
+# Load vectorised chunks
+with open("data/chunks_with_vectors.json", "r", encoding="utf-8") as f:
+    chunks = json.load(f)
 
-# Setup OpenAI
-import openai
-openai.api_key = os.getenv("OPENAI_API_KEY")
+# Load phrase map
+with open("data/phrase_map.json", "r", encoding="utf-8") as f:
+    phrase_map = json.load(f)
 
-def embed(text):
-    response = openai.Embedding.create(
-        model="text-embedding-ada-002",
-        input=text,
+# Priority weightings
+PRIORITY_WEIGHTS = {
+    "JSP 822": 5.0,
+    "DTSM": 4.0,
+    "JSP": 3.0,
+    "DEF": 2.0,
+    "OTHER": 1.0,
+}
+
+def get_doc_priority(doc_name):
+    doc_name = doc_name.upper()
+    if "JSP 822" in doc_name:
+        return PRIORITY_WEIGHTS["JSP 822"]
+    elif doc_name.startswith("DTSM"):
+        return PRIORITY_WEIGHTS["DTSM"]
+    elif "JSP" in doc_name:
+        return PRIORITY_WEIGHTS["JSP"]
+    elif any(x in doc_name for x in ["MATG", "HUMAN FACTORS", "SKILL FADE", "HF", "DEF STANDARDS", "MARITIME"]):
+        return PRIORITY_WEIGHTS["DEF"]
+    return PRIORITY_WEIGHTS["OTHER"]
+
+def embed_query(query):
+    response = openai.embeddings.create(
+        input=[query],
+        model="text-embedding-ada-002"
     )
-    return response["data"][0]["embedding"]
+    return response.data[0].embedding
 
-def cosine_similarity(v1, v2):
-    v1, v2 = np.array(v1), np.array(v2)
-    if len(v1) != len(v2) or not np.any(v1) or not np.any(v2):
-        return 0
-    return float(np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2)))
+def semantic_search(query, chunks, top_n=10):
+    query_vec = np.array(embed_query(query)).reshape(1, -1)
 
-def count_term_hits(content, variants):
-    return sum(1 for v in variants if v in content.lower())
+    results = []
+    for chunk in chunks:
+        chunk_vec = np.array(chunk["vector"]).reshape(1, -1)
+        score = cosine_similarity(query_vec, chunk_vec)[0][0]
+        priority = get_doc_priority(chunk["document"])
+        weighted_score = score * priority
+        chunk["score"] = round(score, 3)
+        chunk["priority"] = priority
+        chunk["weighted_score"] = round(weighted_score, 3)
+        results.append(chunk)
 
-# NEW: Document priority boost
-def document_priority_score(doc_name):
-    name = doc_name.lower()
-    if "jsp 822" in name:
-        return 0.20
-    if "dtsm" in name:
-        return 0.15
-    if name.startswith("jsp "):
-        return 0.10
-    if any(term in name for term in ["mod", "army", "navy", "air", "defence", "defense"]):
-        return 0.05
-    return 0.00
+    sorted_results = sorted(results, key=lambda x: x["weighted_score"], reverse=True)
+    return sorted_results[:top_n]
 
-# Main semantic engine with defence weighting
-def get_semantic_answer(query, chunks):
-    print("\n🔍 [Semantic Engine Triggered]")
-    variations = rewrite_with_phrase_map(query)
-    best_variant = variations[0]
-    intent = classify_intent(best_variant)
-    print(f"→ Variants: {variations}")
+def classic_search(query, chunks):
+    query = normalise_input(query)
+    matches = []
+
+    for chunk in chunks:
+        content = normalise_input(chunk["content"])
+        if query in content:
+            chunk["score"] = None
+            matches.append(chunk)
+
+    return matches
+
+def get_answer(user_input, chunks):
+    from rewrite_query import rewrite_with_phrase_map
+
+    variants = rewrite_with_phrase_map(user_input)
+    normalised_variants = [normalise_input(v) for v in variants]
+    base_query = normalise_input(user_input)
+
+    # Detect if it's a classic keyword match
+    if any(len(v.split()) == 1 for v in normalised_variants):
+        print(f"🔁 Using Classic Engine for query: {user_input}")
+        print(f"🔁 [Classic Match Triggered]")
+        print(f"→ Variants: {normalised_variants}")
+        return classic_search(base_query, chunks)
+
+    print(f"🧠 Using Semantic Engine for query: {user_input}")
+    print(f"🔍 [Semantic Engine Triggered]")
+    print(f"→ Variants: {normalised_variants}")
+    intent = detect_question_type(base_query)
     print(f"→ Intent: {intent}")
 
-    try:
-        query_vector = embed(best_variant)
-    except Exception as e:
-        print(f"⚠️ Embedding failed: {e}")
-        return get_answer(query, chunks)
+    return semantic_search(base_query, chunks, top_n=25)
 
-    results = []
-    for chunk in chunks:
-        content = chunk.get("content", "")
-        section = chunk.get("section", "")
-        doc = chunk.get("document", "Unknown")
-        base_score = max(fuzz.partial_ratio(v.lower(), content.lower()) for v in variations) / 100.0
+def detect_question_type(text):
+    q = text.strip().lower()
+    if q.startswith("what"): return "what"
+    if q.startswith("how"): return "how"
+    if q.startswith("why"): return "why"
+    if q.startswith("when"): return "when"
+    if q.startswith("who"): return "who"
+    if q.startswith("where"): return "where"
+    return "general"
 
-        emb_score = 0
-        if "vector" in chunk and chunk["vector"]:
-            try:
-                chunk_vector = chunk["vector"]
-                emb_score = cosine_similarity(query_vector, chunk_vector)
-            except Exception:
-                emb_score = 0
-
-        co_score = count_term_hits(content, variations) * 0.05
-        sec_score = 0.1 if any(s in section for s in ["1.", "2.", "3.", "4.", "5."]) else 0
-        doc_score = document_priority_score(doc)
-
-        total_score = round(
-            (0.5 * base_score) +
-            (0.4 * emb_score) +
-            co_score +
-            sec_score +
-            doc_score,
-            4
-        )
-
-        if total_score >= 0.35:
-            results.append({
-                "score": total_score,
-                "reason": f"Intent: {intent}, score={total_score:.4f}",
-                "content": content,
-                "section": section or "Uncategorised",
-                "document": doc
-            })
-
-    if not results:
-        print("⚠️ No semantic results — fallback to classic")
-        return get_answer(query, chunks)
-
-    return sorted(results, key=lambda x: x["score"], reverse=True)
-
-# Classic fuzzy fallback
-def get_answer(query, chunks):
-    print("\n🔁 [Classic Match Triggered]")
-    variations = rewrite_with_phrase_map(query)
-    print(f"→ Variants: {variations}")
-
-    results = []
-    for chunk in chunks:
-        content = chunk.get("content", "")
-        for v in variations:
-            if v in content.lower():
-                results.append({
-                    "score": 1.0,
-                    "reason": f"Matched variant: {v}",
-                    "content": content,
-                    "section": chunk.get("section", "Uncategorised"),
-                    "document": chunk.get("document", "Unknown")
-                })
-                break
-
-    return sorted(results, key=lambda x: x["score"], reverse=True)
+def get_semantic_answer(user_input, chunks):
+    return semantic_search(user_input, chunks, top_n=25)
