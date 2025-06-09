@@ -5,14 +5,14 @@ from rapidfuzz import fuzz
 from rewrite_query import rewrite_with_phrase_map
 from utils import classify_intent
 
-# Load chunks with precomputed vectors
+# Load precomputed chunks with vectors
 def load_chunks_with_vectors():
     with open("data/chunks_with_vectors.json", "r", encoding="utf-8") as f:
         return json.load(f)
 
 chunks = load_chunks_with_vectors()
 
-# OpenAI setup (used only for the question embedding)
+# Setup OpenAI
 import openai
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
@@ -32,7 +32,20 @@ def cosine_similarity(v1, v2):
 def count_term_hits(content, variants):
     return sum(1 for v in variants if v in content.lower())
 
-# Semantic + co-occurrence + structure match engine
+# NEW: Document priority boost
+def document_priority_score(doc_name):
+    name = doc_name.lower()
+    if "jsp 822" in name:
+        return 0.20
+    if "dtsm" in name:
+        return 0.15
+    if name.startswith("jsp "):
+        return 0.10
+    if any(term in name for term in ["mod", "army", "navy", "air", "defence", "defense"]):
+        return 0.05
+    return 0.00
+
+# Main semantic engine with defence weighting
 def get_semantic_answer(query, chunks):
     print("\n🔍 [Semantic Engine Triggered]")
     variations = rewrite_with_phrase_map(query)
@@ -51,6 +64,7 @@ def get_semantic_answer(query, chunks):
     for chunk in chunks:
         content = chunk.get("content", "")
         section = chunk.get("section", "")
+        doc = chunk.get("document", "Unknown")
         base_score = max(fuzz.partial_ratio(v.lower(), content.lower()) for v in variations) / 100.0
 
         emb_score = 0
@@ -63,8 +77,16 @@ def get_semantic_answer(query, chunks):
 
         co_score = count_term_hits(content, variations) * 0.05
         sec_score = 0.1 if any(s in section for s in ["1.", "2.", "3.", "4.", "5."]) else 0
+        doc_score = document_priority_score(doc)
 
-        total_score = round((0.5 * base_score) + (0.4 * emb_score) + co_score + sec_score, 4)
+        total_score = round(
+            (0.5 * base_score) +
+            (0.4 * emb_score) +
+            co_score +
+            sec_score +
+            doc_score,
+            4
+        )
 
         if total_score >= 0.35:
             results.append({
@@ -72,7 +94,7 @@ def get_semantic_answer(query, chunks):
                 "reason": f"Intent: {intent}, score={total_score:.4f}",
                 "content": content,
                 "section": section or "Uncategorised",
-                "document": chunk.get("document", "Unknown")
+                "document": doc
             })
 
     if not results:
@@ -81,7 +103,7 @@ def get_semantic_answer(query, chunks):
 
     return sorted(results, key=lambda x: x["score"], reverse=True)
 
-# Classic fuzzy-only fallback engine
+# Classic fuzzy fallback
 def get_answer(query, chunks):
     print("\n🔁 [Classic Match Triggered]")
     variations = rewrite_with_phrase_map(query)
