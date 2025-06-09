@@ -16,6 +16,7 @@ def index():
     selected_doc = request.form.get("document", "")
     refine_query = request.form.get("refine_query", "")
     use_semantic = request.form.get("use_semantic") == "on"
+    show_score = request.form.get("show_score") == "on"
     answer = []
 
     if request.form.get("clear") == "1":
@@ -47,7 +48,8 @@ def index():
         documents=["All Documents"] + documents,
         selected_doc=selected_doc,
         refine_query=refine_query,
-        use_semantic=use_semantic
+        use_semantic=use_semantic,
+        show_score=show_score
     )
 
 if __name__ == "__main__":
