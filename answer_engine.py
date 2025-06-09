@@ -1,16 +1,11 @@
-# answer_engine.py
 import json
 import tiktoken
 from preprocess_pipeline import clean_text
-from rewrite_query import rewrite_with_phrase_map as rewrite_query
+from rewrite_query import rewrite_with_phrase_map
+from rapidfuzz import fuzz
 
-# Load chunks
 with open("data/chunks.json", "r", encoding="utf-8") as f:
     chunks_data = json.load(f)
-
-# Load phrase map
-with open("data/phrase_map.json", "r", encoding="utf-8") as f:
-    phrase_map = json.load(f)
 
 encoding = tiktoken.encoding_for_model("gpt-3.5-turbo")
 
@@ -21,19 +16,15 @@ def get_answer(question, chunks_subset):
     if not question:
         return []
 
-    # Handle input as string only
-    if isinstance(question, list):
-        question = question[0]
-    question = question.strip()
-
-    rewritten_phrases = rewrite_query(question, phrase_map)
-    results = []
+    variations = rewrite_with_phrase_map(question)
+    matches = []
 
     for chunk in chunks_subset:
-        chunk_text = clean_text(chunk["content"])
-        for phrase in rewritten_phrases:
-            if phrase.lower() in chunk_text.lower():
-                results.append(chunk)
+        chunk_text = clean_text(chunk["content"]).lower()
+        for phrase in variations:
+            phrase = phrase.lower().strip()
+            if phrase in chunk_text or fuzz.partial_ratio(phrase, chunk_text) > 80:
+                matches.append(chunk)
                 break
 
-    return results
+    return matches
