@@ -5,14 +5,14 @@ from rapidfuzz import fuzz
 from rewrite_query import rewrite_with_phrase_map
 from utils import classify_intent
 
-# Load enhanced chunks with vectors
+# Load chunks with precomputed vectors
 def load_chunks_with_vectors():
     with open("data/chunks_with_vectors.json", "r", encoding="utf-8") as f:
         return json.load(f)
 
 chunks = load_chunks_with_vectors()
 
-# Setup OpenAI (for query embedding only)
+# OpenAI setup (used only for the question embedding)
 import openai
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
@@ -29,13 +29,12 @@ def cosine_similarity(v1, v2):
         return 0
     return float(np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2)))
 
-# Co-occurrence bonus: reward multiple variant hits
 def count_term_hits(content, variants):
     return sum(1 for v in variants if v in content.lower())
 
-# Main semantic + structured scoring engine
+# Semantic + co-occurrence + structure match engine
 def get_semantic_answer(query, chunks):
-    print("\n🔍 [1.2 Semantic Engine Triggered]")
+    print("\n🔍 [Semantic Engine Triggered]")
     variations = rewrite_with_phrase_map(query)
     best_variant = variations[0]
     intent = classify_intent(best_variant)
@@ -62,12 +61,12 @@ def get_semantic_answer(query, chunks):
             except Exception:
                 emb_score = 0
 
-        co_score = count_term_hits(content, variations) * 0.05  # 5% per hit
+        co_score = count_term_hits(content, variations) * 0.05
         sec_score = 0.1 if any(s in section for s in ["1.", "2.", "3.", "4.", "5."]) else 0
 
         total_score = round((0.5 * base_score) + (0.4 * emb_score) + co_score + sec_score, 4)
 
-        if total_score > 0:
+        if total_score >= 0.35:
             results.append({
                 "score": total_score,
                 "reason": f"Intent: {intent}, score={total_score:.4f}",
@@ -82,7 +81,7 @@ def get_semantic_answer(query, chunks):
 
     return sorted(results, key=lambda x: x["score"], reverse=True)
 
-# Classic fallback (no vector use)
+# Classic fuzzy-only fallback engine
 def get_answer(query, chunks):
     print("\n🔁 [Classic Match Triggered]")
     variations = rewrite_with_phrase_map(query)
