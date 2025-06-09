@@ -2,7 +2,7 @@
 import json
 import tiktoken
 from preprocess_pipeline import clean_text
-from rewrite_query import rewrite_with_phrase_map
+from rewrite_query import rewrite_query
 
 # Load chunks
 with open("data/chunks.json", "r", encoding="utf-8") as f:
@@ -17,22 +17,19 @@ def get_answer(question, chunks_subset):
     if not question:
         return []
 
-    question = question.strip().lower()
+    rewritten_queries = rewrite_query(question)
 
-    # Try rewriting the question using the phrase map
-    try:
-        rewritten = rewrite_with_phrase_map(question)
-        print(f"Original query: {question}")
-        print(f"Rewritten query: {rewritten}")
-    except Exception as e:
-        print(f"Rewrite error: {e}")
-        rewritten = question
+    # Ensure the rewritten_queries is a list
+    if isinstance(rewritten_queries, str):
+        rewritten_queries = [rewritten_queries]
 
     results = []
-
     for chunk in chunks_subset:
         chunk_text = clean_text(chunk["content"]).lower()
-        if rewritten in chunk_text or question in chunk_text:
-            results.append(chunk)
+
+        for rewritten in rewritten_queries:
+            if rewritten.lower() in chunk_text:
+                results.append(chunk)
+                break  # Avoid duplicate entries from multiple matches
 
     return results
