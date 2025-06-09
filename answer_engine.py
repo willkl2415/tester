@@ -1,30 +1,60 @@
 import json
-import tiktoken
-from preprocess_pipeline import clean_text
-from rewrite_query import rewrite_with_phrase_map
+import os
+import re
+from openai import OpenAI
 from rapidfuzz import fuzz
+from rewrite_query import apply_phrase_map
+from utils import classify_intent
 
-with open("data/chunks.json", "r", encoding="utf-8") as f:
-    chunks_data = json.load(f)
+client = OpenAI()
 
-encoding = tiktoken.encoding_for_model("gpt-3.5-turbo")
+def load_chunks():
+    with open("data/chunks.json", "r", encoding="utf-8") as f:
+        return json.load(f)
 
-def num_tokens_from_string(string: str) -> int:
-    return len(encoding.encode(string))
+def load_phrase_map():
+    with open("data/phrase_map.json", "r", encoding="utf-8") as f:
+        return json.load(f)
 
-def get_answer(question, chunks_subset):
-    if not question:
-        return []
+def embed(text):
+    response = client.embeddings.create(
+        model="text-embedding-ada-002",
+        input=text,
+    )
+    return response.data[0].embedding
 
-    variations = rewrite_with_phrase_map(question)
-    matches = []
+def cosine_similarity(v1, v2):
+    import numpy as np
+    v1, v2 = np.array(v1), np.array(v2)
+    return float(np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2)))
 
-    for chunk in chunks_subset:
-        chunk_text = clean_text(chunk["content"]).lower()
-        for phrase in variations:
-            phrase = phrase.lower().strip()
-            if phrase in chunk_text or fuzz.partial_ratio(phrase, chunk_text) > 80:
-                matches.append(chunk)
-                break
+def semantic_match(query, chunks, use_embedding=True, co_terms=None):
+    phrase_map = load_phrase_map()
+    query_rewritten = apply_phrase_map(query, phrase_map)
+    intent = classify_intent(query_rewritten)
 
-    return matches
+    if use_embedding:
+        query_vector = embed(query_rewritten)
+
+    scored = []
+    for chunk in chunks:
+        content = chunk.get("content", "")
+        base_score = fuzz.partial_ratio(query_rewritten.lower(), content.lower()) / 100.0
+        co_score = 0
+        if co_terms:
+            co_score = sum(1 for term in co_terms if term.lower() in content.lower()) * 0.05
+        emb_score = 0
+        if use_embedding:
+            chunk_vector = embed(content[:500])  # avoid token overrun
+            emb_score = cosine_similarity(query_vector, chunk_vector)
+
+        total_score = round(0.5 * base_score + 0.4 * emb_score + co_score, 4)
+        scored.append({
+            "score": total_score,
+            "reason": f"Intent: {intent}, phrase match + embedding + co-occurrence",
+            "content": content,
+            "section": chunk.get("section", "Uncategorised"),
+            "document": chunk.get("document", "Unknown")
+        })
+
+    return sorted(scored, key=lambda x: x["score"], reverse=True)[:10]
