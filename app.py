@@ -15,8 +15,6 @@ def index():
     question = request.form.get("question", "")
     selected_doc = request.form.get("document", "")
     refine_query = request.form.get("refine_query", "")
-    use_semantic = request.form.get("use_semantic") == "on"
-    show_score = request.form.get("show_score") == "on"
     answer = []
 
     if request.form.get("clear") == "1":
@@ -30,15 +28,8 @@ def index():
         filtered_chunks = [chunk for chunk in filtered_chunks if refine_query.lower() in chunk["content"].lower()]
 
     if question:
-        if use_semantic:
-            print(f"\n🧠 Using Semantic Engine for query: {question}")
-            answer = get_semantic_answer(question, filtered_chunks)
-        else:
-            print(f"\n🔁 Using Classic Engine for query: {question}")
-            answer = get_answer(question, filtered_chunks)
-        print(f"✅ Returned {len(answer)} results\n")
+        answer = get_semantic_answer(question, filtered_chunks)
     elif refine_query:
-        print(f"\n📂 Refine filter active: '{refine_query}' in {len(filtered_chunks)} chunks")
         answer = filtered_chunks
 
     return render_template(
@@ -47,9 +38,7 @@ def index():
         question=question,
         documents=["All Documents"] + documents,
         selected_doc=selected_doc,
-        refine_query=refine_query,
-        use_semantic=use_semantic,
-        show_score=show_score
+        refine_query=refine_query
     )
 
 if __name__ == "__main__":
