@@ -1,37 +1,33 @@
 import json
 import os
 
-# Load phrase map
-phrase_map_path = os.path.join("data", "phrase_map.json")
-if os.path.exists(phrase_map_path):
-    with open(phrase_map_path, "r", encoding="utf-8") as f:
-        phrase_map = json.load(f)
+# Load phrase_map.json once when the app starts
+PHRASE_MAP_PATH = os.path.join("data", "phrase_map.json")
+if os.path.exists(PHRASE_MAP_PATH):
+    with open(PHRASE_MAP_PATH, "r") as file:
+        PHRASE_MAP = json.load(file)
 else:
-    phrase_map = {}
+    PHRASE_MAP = {}
 
-def rewrite_query(original_query):
+def rewrite_with_phrase_map(user_input, phrase_map=PHRASE_MAP):
     """
-    Accepts a raw query string, splits it into words, and replaces
-    known phrases or typos using the phrase_map dictionary.
-    Returns a list of possible rewritten queries including the original.
+    Rewrites a user query using known typo/abbreviation/variant mappings.
+
+    Returns a list of rewritten phrases that can be used for better matching.
     """
-    if not isinstance(original_query, str):
-        return [original_query]
+    rewritten = []
+    cleaned_input = user_input.strip().lower()
 
-    words = original_query.strip().lower().split()
-    rewritten_words = []
+    # Always include the original query
+    rewritten.append(cleaned_input)
 
-    for word in words:
-        if word in phrase_map:
-            replacement = phrase_map[word]
-            rewritten_words.append(replacement)
-        else:
-            rewritten_words.append(word)
+    # Check phrase map for possible rewrites
+    for key, variants in phrase_map.items():
+        for variant in variants:
+            if variant.lower() in cleaned_input and key.lower() not in cleaned_input:
+                rewritten.append(cleaned_input.replace(variant.lower(), key.lower()))
 
-    rewritten_query = " ".join(rewritten_words)
+    # Remove duplicates
+    rewritten = list(set(rewritten))
 
-    # Always include original query too
-    if rewritten_query != original_query:
-        return [rewritten_query, original_query]
-    else:
-        return [original_query]
+    return rewritten
