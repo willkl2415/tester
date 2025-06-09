@@ -5,14 +5,14 @@ from rapidfuzz import fuzz
 from rewrite_query import rewrite_with_phrase_map
 from utils import classify_intent
 
-# Load chunks with precomputed vectors
+# Load enhanced chunks with vectors
 def load_chunks_with_vectors():
     with open("data/chunks_with_vectors.json", "r", encoding="utf-8") as f:
         return json.load(f)
 
 chunks = load_chunks_with_vectors()
 
-# Load OpenAI key (only needed for query embedding)
+# Setup OpenAI (for query embedding only)
 import openai
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
@@ -29,14 +29,17 @@ def cosine_similarity(v1, v2):
         return 0
     return float(np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2)))
 
-# Combined semantic + fuzzy engine using precomputed vectors
-def get_semantic_answer(query, chunks):
-    print("\n🔍 [Precomputed Semantic Engine Triggered]")
+# Co-occurrence bonus: reward multiple variant hits
+def count_term_hits(content, variants):
+    return sum(1 for v in variants if v in content.lower())
 
+# Main semantic + structured scoring engine
+def get_semantic_answer(query, chunks):
+    print("\n🔍 [1.2 Semantic Engine Triggered]")
     variations = rewrite_with_phrase_map(query)
     best_variant = variations[0]
-    print(f"→ Variants: {variations}")
     intent = classify_intent(best_variant)
+    print(f"→ Variants: {variations}")
     print(f"→ Intent: {intent}")
 
     try:
@@ -48,9 +51,10 @@ def get_semantic_answer(query, chunks):
     results = []
     for chunk in chunks:
         content = chunk.get("content", "")
+        section = chunk.get("section", "")
         base_score = max(fuzz.partial_ratio(v.lower(), content.lower()) for v in variations) / 100.0
-        emb_score = 0
 
+        emb_score = 0
         if "vector" in chunk and chunk["vector"]:
             try:
                 chunk_vector = chunk["vector"]
@@ -58,14 +62,17 @@ def get_semantic_answer(query, chunks):
             except Exception:
                 emb_score = 0
 
-        total_score = round((0.5 * base_score) + (0.4 * emb_score), 4)
+        co_score = count_term_hits(content, variations) * 0.05  # 5% per hit
+        sec_score = 0.1 if any(s in section for s in ["1.", "2.", "3.", "4.", "5."]) else 0
+
+        total_score = round((0.5 * base_score) + (0.4 * emb_score) + co_score + sec_score, 4)
 
         if total_score > 0:
             results.append({
                 "score": total_score,
-                "reason": f"Intent: {intent}, fuzzy + precomputed vector match",
+                "reason": f"Intent: {intent}, score={total_score:.4f}",
                 "content": content,
-                "section": chunk.get("section", "Uncategorised"),
+                "section": section or "Uncategorised",
                 "document": chunk.get("document", "Unknown")
             })
 
@@ -75,7 +82,7 @@ def get_semantic_answer(query, chunks):
 
     return sorted(results, key=lambda x: x["score"], reverse=True)
 
-# Fallback classic engine
+# Classic fallback (no vector use)
 def get_answer(query, chunks):
     print("\n🔁 [Classic Match Triggered]")
     variations = rewrite_with_phrase_map(query)
