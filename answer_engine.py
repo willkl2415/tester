@@ -10,7 +10,7 @@ import openai
 from utils import normalise_input
 
 # Load OpenAI key
-openai = OpenAI()
+import openai
 
 # Load vectorised chunks
 with open("data/chunks_with_vectors.json", "r", encoding="utf-8") as f:
