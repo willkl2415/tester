@@ -6,18 +6,18 @@ from rapidfuzz import fuzz
 from rewrite_query import rewrite_with_phrase_map
 from utils import classify_intent
 
-client = OpenAI()
 
 def load_chunks():
     with open("data/chunks.json", "r", encoding="utf-8") as f:
         return json.load(f)
 
 def embed(text):
-    response = client.embeddings.create(
+    openai.api_key = os.getenv("OPENAI_API_KEY")
+    response = openai.Embedding.create(
         model="text-embedding-ada-002",
         input=text,
     )
-    return response.data[0].embedding
+    return response["data"][0]["embedding"]
 
 def cosine_similarity(v1, v2):
     import numpy as np
