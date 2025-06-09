@@ -43,6 +43,13 @@
                 {% endfor %}
             </select>
             <input type="text" name="refine_query" placeholder="Refine your search..." value="{{ refine_query }}" />
+
+            <!-- ✅ Show Score Toggle -->
+            <label style="display: block; margin-top: 6px;">
+                <input type="checkbox" name="show_score" {% if show_score %}checked{% endif %}>
+                Show Relevance Score
+            </label>
+
             <button type="submit" class="green-button"><strong>Ask Check-Mate</strong></button>
             <button type="submit" name="clear" value="1" class="red-button"><strong>Clear Search</strong></button>
         </form>
@@ -53,10 +60,10 @@
             {% for chunk in answer %}
             <li>
                 <strong>{{ chunk.document }}</strong> — {{ chunk.section }}<br/>
-                {{ chunk.content }}
-                {% if chunk.score is defined %}
-                <br/><em>Relevance Score:</em> {{ '%.2f'|format(chunk.score) }}
+                {% if show_score and chunk.score is defined %}
+                <em>Relevance Score:</em> {{ '%.2f'|format(chunk.score) }}<br/>
                 {% endif %}
+                {{ chunk.content }}
             </li>
             {% endfor %}
         </ul>
