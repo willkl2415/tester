@@ -1,6 +1,7 @@
 import json
 import os
-from openai import OpenAI
+import openai
+import os
 from rapidfuzz import fuzz
 from rewrite_query import rewrite_with_phrase_map
 from utils import classify_intent
