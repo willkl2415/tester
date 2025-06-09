@@ -6,7 +6,7 @@ import re
 import numpy as np
 import tiktoken
 from sklearn.metrics.pairwise import cosine_similarity
-from openai import OpenAI
+import openai
 from utils import normalise_input
 
 # Load OpenAI key
