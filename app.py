@@ -1,49 +1,37 @@
-import os
-import json
-from flask import Flask, render_template, request, redirect, url_for
-from answer_engine import get_answer, get_semantic_answer
+from flask import Flask, render_template, request
+from answer_engine import get_answer
+from filters import filter_chunks
+from utils import load_chunks
 
 app = Flask(__name__)
 
-with open("data/chunks.json", "r", encoding="utf-8") as f:
-    chunks_data = json.load(f)
-
-documents = sorted(set(chunk["document"] for chunk in chunks_data))
+chunks = load_chunks("data/chunks.json")
 
 @app.route("/", methods=["GET", "POST"])
 def index():
-    question = request.form.get("question", "")
-    selected_doc = request.form.get("document", "")
-    refine_query = request.form.get("refine_query", "")
-    show_score = request.form.get("show_score") == "on"
-    answer = []
+    answer = ""
+    results = []
+    filtered_chunks = chunks
+    selected_documents = []
+    selected_sections = []
+    include_subsections = False
 
-    if request.form.get("clear") == "1":
-        return redirect(url_for("index"))
+    if request.method == "POST":
+        user_input = request.form["question"]
+        selected_documents = request.form.getlist("documents")
+        selected_sections = request.form.getlist("sections")
+        include_subsections = request.form.get("includeSubsections") == "on"
+        filtered_chunks = filter_chunks(chunks, selected_documents, selected_sections, include_subsections)
+        answer, results = get_answer(user_input, filtered_chunks)
 
-    filtered_chunks = chunks_data
-    if selected_doc and selected_doc != "All Documents":
-        filtered_chunks = [chunk for chunk in filtered_chunks if chunk["document"] == selected_doc]
+    documents = sorted(set(chunk["document"] for chunk in chunks))
+    sections = sorted(set(chunk.get("section", "Uncategorised") for chunk in chunks))
 
-    if refine_query:
-        filtered_chunks = [chunk for chunk in filtered_chunks if refine_query.lower() in chunk["content"].lower()]
-
-    if question:
-        print(f"\n🧠 Using Semantic Engine for query: {question}")
-        answer = get_semantic_answer(question, filtered_chunks)
-        print(f"✅ Returned {len(answer)} results\n")
-    elif refine_query:
-        answer = filtered_chunks
-
-    return render_template(
-        "index.html",
-        answer=answer,
-        question=question,
-        documents=["All Documents"] + documents,
-        selected_doc=selected_doc,
-        refine_query=refine_query,
-        show_score=show_score
-    )
-
-if __name__ == "__main__":
-    app.run(debug=True)
+    return render_template("index.html",
+                           answer=answer,
+                           results=results,
+                           documents=documents,
+                           sections=sections,
+                           selected_documents=selected_documents,
+                           selected_sections=selected_sections,
+                           include_subsections=include_subsections)
