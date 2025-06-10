@@ -7,3 +7,4 @@ services:
     envVars:
       - key: OPENAI_API_KEY
         sync: false
+# Force render to detect change
