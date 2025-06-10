@@ -1,9 +1,11 @@
 services:
   - type: web
-    name: tester-xfxj
+    name: checkmate
     env: python
-    plan: starter
-    buildCommand: pip install -r requirements.txt
+    buildCommand: |
+      apt-get update && apt-get install -y git-lfs && git lfs install
+      git lfs pull
+      pip install -r requirements.txt
     startCommand: gunicorn app:app --bind 0.0.0.0:$PORT
     envVars:
       - key: OPENAI_API_KEY
