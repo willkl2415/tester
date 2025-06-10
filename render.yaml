@@ -2,10 +2,9 @@ services:
   - type: web
     name: checkmate
     env: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT
+    buildCommand: echo "forcing change for Git Desktop"
+    startCommand: echo "temporary start command"
     envVars:
       - key: OPENAI_API_KEY
         sync: false
-# Force render to detect change
-# remove git-lfs to fix build loop
+# TEMP FORCED EDIT - TO BE REPLACED IMMEDIATELY
